@@ -9,7 +9,7 @@
 
 % When used, please use the following reference:
 % Birkhold A, Razi H, Duda GN, Weinkamer R, Checa S, Willie BM,
-% Mineralizing surface is the maint arget of mechanical stimulation
+% Mineralizing surface is the main target of mechanical stimulation
 % independent of age: 3D Dynamic in vivo Morphometry, Bone, 66:15-25, 2014
 
 % LICENSE
@@ -237,7 +237,7 @@ for m = 1:length(files) % non-baseline scans
     clear I_x & I_y & I_z;
     
     % calculate SA of formed bone:
-    % surface area of constant bone, grow 1, check if it´s newly formed
+    % surface area of constant bone, grow 1, check if itÂ´s newly formed
     [I_x,I_y,I_z] = size(Image_without_surf);
     Image_surf_const_labels = zeros(I_x,I_y,I_z);
     Constant_bone_volume1 = (Image_without_surf == 1) & (constant_bone == 1);
@@ -430,7 +430,7 @@ for m = 1:length(files) % non-baseline scans
     E = double(Ult_E);
     dist_formed = 2 * double(Dist) - 1;
     loc_max_formed = E .* dist_formed .* reso; % Voxelsize
-    % local maxima*value at local maxima = E*Dist; µm
+    % local maxima*value at local maxima = E*Dist; Âµm
     mean_formed =  mean (loc_max_formed(loc_max_formed~=0));
     std_formed = std (loc_max_formed(loc_max_formed~=0));
     max_formed = max(loc_max_formed(loc_max_formed~=0));
@@ -443,7 +443,7 @@ for m = 1:length(files) % non-baseline scans
     E = double(Ult_E);
     dist_formedEndosteal = 2 * double(Dist) - 1;
     loc_max_formedEndosteal = E .* dist_formedEndosteal .* reso;
-    % local maxima*value at local maxima = E*Dist; µm
+    % local maxima*value at local maxima = E*Dist; Âµm
     mean_formedEndosteal = mean (loc_max_formedEndosteal(loc_max_formedEndosteal~=0));
     std_formedEndosteal = std (loc_max_formedEndosteal(loc_max_formedEndosteal~=0));
     max_formedEndosteal = max(loc_max_formedEndosteal(loc_max_formedEndosteal~=0));
@@ -456,7 +456,7 @@ for m = 1:length(files) % non-baseline scans
     E = double(Ult_E);
     dist_formedPeriosteal = 2 * double(Dist) - 1;
     loc_max_formedPeriosteal = E .* dist_formedPeriosteal .* reso;
-    % local maxima*value at local maxima = E*Dist; µm
+    % local maxima*value at local maxima = E*Dist; Âµm
     mean_formedPeriosteal = mean (loc_max_formedPeriosteal(loc_max_formedPeriosteal~=0));
     std_formedPeriosteal = std (loc_max_formedPeriosteal(loc_max_formedPeriosteal~=0));
     max_formedPeriosteal = max(loc_max_formedPeriosteal(loc_max_formedPeriosteal~=0));
@@ -471,7 +471,7 @@ for m = 1:length(files) % non-baseline scans
     E = double(Ult_E);
     dist_resorbed = 2 * double(Dist) - 1;
     loc_max_resorbed = E .* dist_resorbed .* reso;
-    % local maxima*value at local maxima = E*Dist; µm
+    % local maxima*value at local maxima = E*Dist; Âµm
     mean_resorbed =  mean (loc_max_resorbed(loc_max_resorbed~=0));
     std_resorbed = std (loc_max_resorbed(loc_max_resorbed~=0));
     max_resorbed = max(loc_max_resorbed(loc_max_resorbed~=0));
@@ -484,7 +484,7 @@ for m = 1:length(files) % non-baseline scans
     E = double(Ult_E);
     dist_resorbedEndosteal = 2 * double(Dist) - 1;
     loc_max_resorbedEndosteal = E .* dist_resorbedEndosteal .* reso;
-    % local maxima*value at local maxima = E*Dist; µm
+    % local maxima*value at local maxima = E*Dist; Âµm
     mean_resorbedEndosteal = mean (loc_max_resorbedEndosteal(loc_max_resorbedEndosteal~=0));
     std_resorbedEndosteal = std (loc_max_resorbedEndosteal(loc_max_resorbedEndosteal~=0));
     max_resorbedEndosteal = max(loc_max_resorbedEndosteal(loc_max_resorbedEndosteal~=0));
@@ -497,7 +497,7 @@ for m = 1:length(files) % non-baseline scans
     E = double(Ult_E);
     dist_resorbedPeriosteal = 2 * double(Dist) - 1;
     loc_max_resorbedPeriosteal = E .* dist_resorbedPeriosteal .* reso;
-    % local maxima*value at local maxima = E*Dist; µm
+    % local maxima*value at local maxima = E*Dist; Âµm
     mean_resorbedPeriosteal = mean (loc_max_resorbedPeriosteal(loc_max_resorbedPeriosteal~=0));
     std_resorbedPeriosteal = std (loc_max_resorbedPeriosteal(loc_max_resorbedPeriosteal~=0));
     max_resorbedPeriosteal = max(loc_max_resorbedPeriosteal(loc_max_resorbedPeriosteal~=0));
