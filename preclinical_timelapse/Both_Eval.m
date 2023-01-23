@@ -13,6 +13,23 @@ tic
 % is_mat - boolean indicating if output is mat file. if 0, tiff file
 % res_folder - 2x1 cell array with paths for report (1) and output (2)
 
+%% 2022-06-16 Update Anna (Lesion Analysis)
+% Lesion Analysis only done for which_eval == 'cort', since it doesn't work
+% for the trabecular analysis, yet
+% Parameter for Lesion Analysis
+% noise_reduction
+noise_range_x = 3;
+noise_range_y = 3;
+noise_range_z = 3;
+noise_thresh_filt = 0.7; % to extract 'dense' part from full cluster
+
+% identify cluster-core
+core_range_x = 9;
+core_range_y = 9;
+core_range_z = 4;
+core_thresh_filt = 0.9261; % to identify cluster core
+
+%%
 % Visualization of function progress
 uf = uifigure;
 name = uf.Name;
@@ -232,7 +249,121 @@ for m = 1:length(files) % non-baseline scans
     end
     clear I_x & I_y & I_z;
     
+    if strcmp('cort', which_eval)
     
+        %% 2022-06-16 Update Anna (Lesion Analysis)
+        % ++++++++++++++++++++++++++++++++++++
+        % ++++++++CLUSTER EVALUATION++++++++++
+        % ++++++++++++++++++++++++++++++++++++
+
+        % Fusion of cortical and resorption zones
+
+        Resorbed_filtered = (Bone_both == 1) & (resorbed_bone ==1);
+        Resorbed_filt = double(Resorbed_filtered);
+
+        % Adding neighbors to characterize environment - noise reduction
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+        M = Resorbed_filt;
+
+        % Threshold for cluster_core and filter of full cluster
+        threshold_noise = noise_thresh_filt *(noise_range_x*2+1)*(noise_range_y*2+1)*(noise_range_z*2+1);
+        threshold_core = core_thresh_filt *(core_range_x*2+1)*(core_range_y*2+1)*(core_range_z*2+1);
+
+        [o,p,q] = size(M);
+        M_x = double(zeros(o,p,q));
+        M_y = double(zeros(o,p,q));
+        M_z = double(zeros(o,p,q));
+
+        for r = 1:noise_range_x
+
+            M_add = [zeros(r,p,q);M(1:o-r,:,:)] + [M(1+r:o,:,:);zeros(r,p,q)];
+            M_x = M_x + M_add; 
+
+        end
+
+        M = M + M_x;
+
+        for r = 1:noise_range_y
+
+            M_add = [zeros(o,r,q),M(:,1:p-r,:)] + [M(:,1+r:p,:),zeros(o,r,q)];
+            M_y = M_y + M_add; 
+
+        end
+
+        M = M + M_y;
+
+        for r = 1:noise_range_z
+
+            M_add = cat(3,zeros(o,p,r), M(:,:,1:q-r)) + cat(3,M(:,:,1+r:q), zeros(o,p,r));
+            M_z = M_z + M_add; 
+
+        end
+
+        M = M + M_z;
+
+        No_noise = M > threshold_noise;
+
+
+        % Adding neighbors to characterize environment - identify cluster-core
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+        M = Resorbed_filt;
+
+        [o,p,q] = size(M);
+        M_x = double(zeros(o,p,q));
+        M_y = double(zeros(o,p,q));
+        M_z = double(zeros(o,p,q));
+
+        for r = 1:core_range_x
+
+            M_add = [zeros(r,p,q);M(1:o-r,:,:)] + [M(1+r:o,:,:);zeros(r,p,q)];
+            M_x = M_x + M_add; 
+
+        end
+
+        M = M + M_x;
+
+        for r = 1:core_range_y
+
+            M_add = [zeros(o,r,q),M(:,1:p-r,:)] + [M(:,1+r:p,:),zeros(o,r,q)];
+            M_y = M_y + M_add; 
+
+        end
+
+        M = M + M_y;
+
+        for r = 1:core_range_z
+
+            M_add = cat(3,zeros(o,p,r), M(:,:,1:q-r)) + cat(3,M(:,:,1+r:q), zeros(o,p,r));
+            M_z = M_z + M_add; 
+
+        end
+
+        M = M + M_z;
+
+        Cluster_core = M > threshold_core;
+
+        Cluster_full = zeros(size(M));
+        idx_inClus = find(Cluster_core,1);
+
+        if idx_inClus
+            CC = bwconncomp(No_noise);
+            clus_idx = find(cellfun(@(x) any(x(:)==idx_inClus), CC.PixelIdxList));
+        else
+            clus_idx = [];
+        end
+
+        if clus_idx
+            Cluster_full(CC.PixelIdxList{clus_idx}) = 1;
+            size_cluster = sum(sum(sum(Cluster_full)))*voxelsize^3;
+        else
+            size_cluster = 0;
+        end
+    end
+    
+    %%
     % ++++++++++++++++++++++++++++++++++++
     % ++++++++++++MORPHOMETRY+++++++++++++
     % ++++++++++++++++++++++++++++++++++++
@@ -433,10 +564,24 @@ for m = 1:length(files) % non-baseline scans
     constant_bone_voxels_all_logic = (Image_without_surf==1) & (constant_bone==1);
     formed_bone_voxels_all_logic = (Image_without_surf==1) & (formed_bone==1);
     resorbed_bone_voxels_all_logic = (Image_without_surf==1) & (resorbed_bone==1);
+    %% 2022-06-16 Update Anna (Lesion Analysis)
+    if strcmp('cort', which_eval)
+        cluster_voxels_all_logic = (Image_without_surf==1) & (Cluster_full==1);
+        cluster_voxels_core_all_logic = (Image_without_surf==1) & (Cluster_core==1);
+    end
     %% Creating new vis
-    Result_volumes_inclsurf_labels = uint8(constant_bone_voxels_all_logic + ...
-        formed_bone_voxels_all_logic*2 + ...
-        resorbed_bone_voxels_all_logic*3);
+    switch which_eval
+        case 'cort'
+            Result_volumes_inclsurf_labels = uint8(constant_bone_voxels_all_logic + ...
+                formed_bone_voxels_all_logic*2 + ...
+                resorbed_bone_voxels_all_logic*3 + ...
+                cluster_voxels_all_logic*4 + ...
+                cluster_voxels_core_all_logic*5);
+        case 'trab'
+            Result_volumes_inclsurf_labels = uint8(constant_bone_voxels_all_logic + ...
+                formed_bone_voxels_all_logic*2 + ...
+                resorbed_bone_voxels_all_logic*3);
+    end
     Result_volumes_inclsurf = uint8(constant_bone_voxels_all_logic + ...
         formed_bone_voxels_all_logic + ...
         resorbed_bone_voxels_all_logic);
@@ -705,6 +850,8 @@ for m = 1:length(files) % non-baseline scans
     end
     % Write volumetric results
     filename = char(c_2(m));
+    %% 2022-06-16 Update Anna (Lesion Analysis)
+    % write out size of cluster (if existent) in case of cortical analysis
     if is_short == 1
         %% 2022-03-12 Update
         % Add parameter for the two thresholds and the ST also
@@ -713,14 +860,14 @@ for m = 1:length(files) % non-baseline scans
                 Parameters = {'Threshold 0'; 'Threshold X'; 'R_1'; 'R_2'; 'R_3'; 'R_4'; 'Voxelsize'; 'Ec.MV/BV'; 'Ec.EV/BV'; 'Ec.MS/BS'; 'Ec.ES/BS';...
                     'Ec.MAR3D'; 'Ec.MRR3D'; 'Ec.BFR3D'; 'Ec.BRR3D'; 'Ec.MTh'; 'Ec.ED'; 'Ps.MV/BV'; 'Ps.EV/BV'; 'Ps.MS/BS'; 'Ps.ES/BS';...
                     'Ps.MAR3D'; 'Ps.MRR3D'; 'Ps.BFR3D'; 'Ps.BRR3D'; 'Ps.MTh'; 'Ps.ED'; 'T.MV/BV'; 'T.EV/BV'; 'T.MS_ST/BS' ; 'T.MS_CB/BS'; 'T.ES_ST/BS'; ...
-                    'T.ES_CB/BS'; 'T.MAR3D'; 'T.MRR3D'; 'T.BFR3D'; 'T.BRR3D'; 'T.MTh'; 'T.ED'};
+                    'T.ES_CB/BS'; 'T.MAR3D'; 'T.MRR3D'; 'T.BFR3D'; 'T.BRR3D'; 'T.MTh'; 'T.ED'; 'Cluster'};
                 
                 Values = [level_0 ; level_x; R_1; R_2; R_3; R_4; voxelsize; endosteal_formed_BVTV; endosteal_resorbed_BVTV; endosteal_formed_SATA;...
                     endosteal_resorbed_SATA; endosteal_MAR_3D; endosteal_MRR_3D; endosteal_BFR_3D; endosteal_BRR_3D; ...
                     mean_formedEndosteal; mean_resorbedEndosteal; periosteal_formed_BVTV; periosteal_resorbed_BVTV; ...
                     periosteal_formed_SATA; periosteal_resorbed_SATA; periosteal_MAR_3D; periosteal_MRR_3D; periosteal_BFR_3D;...
                     periosteal_BRR_3D; mean_formedPeriosteal; mean_resorbedPeriosteal; formed_BVTV; resorbed_BVTV; formed_SATA_ST; formed_SATA_CB; ...
-                    resorbed_SATA_ST; resorbed_SATA_CB; MAR_3D; MRR_3D; BFR_3D; BRR_3D; formed_height; resorb_height];
+                    resorbed_SATA_ST; resorbed_SATA_CB; MAR_3D; MRR_3D; BFR_3D; BRR_3D; formed_height; resorb_height; size_cluster];
             case 'trab'
                 Parameters = {'Threshold 0'; 'Threshold X'; 'R_1'; 'R_2'; 'R_3'; 'R_4'; 'Voxelsize'; 'T.MV/BV'; 'T.EV/BV'; 'T.MS_ST/BS' ; 'T.MS_CB/BS'; 'T.ES_ST/BS'; ...
                     'T.ES_CB/BS'; 'T.MAR3D'; 'T.MRR3D'; 'T.BFR3D'; 'T.BRR3D'; 'T.MTh'; 'T.ED'};
@@ -742,7 +889,7 @@ for m = 1:length(files) % non-baseline scans
                     'Ps.BRR3D'; 'Ps.MTh'; 'Ps.MTh.sd'; 'Ps.MTh.max'; 'Ps.ED'; 'Ps.ED.sd'; 'Ps.ED.max'; 'Ps.Md'; 'Ps.Ed';...
                     'T.CV'; 'T.MV'; 'T.EV'; 'T.CV/BV'; 'T.MV/BV'; 'T.EV/BV'; 'T.CS'; 'T.MS'; 'T.ES'; 'T.CS/BS'; 'T.MS_ST/BS'; 'T.MS_CB/BS'; 'T.ES_ST/BS';...
                     'T.ES_CB/BS'; 'T.MAR3D'; 'T.MRR3D'; 'T.BFR3D'; 'T.BRR3D'; 'T.MTh'; 'T.MTh.sd'; 'T.MTh.max'; 'T.ED'; 'T.ED.sd';...
-                    'T.ED.max'; 'T.Md'; 'T.Ed';'DeltaBV'; 'DeltaBS_ST';'DeltaBS_CB'};
+                    'T.ED.max'; 'T.Md'; 'T.Ed';'DeltaBV'; 'DeltaBS_ST';'DeltaBS_CB'; 'Cluster'};
                 Values = [level_0; level_x; R_1; R_2; R_3; R_4; voxelsize; endosteal_formed_bone_volume;...
                     endosteal_resorbed_bone_volume; endosteal_formed_BVTV; endosteal_resorbed_BVTV; ...
                     endosteal_const_bone_surf_area; endosteal_formed_bone_surf_area; endosteal_resorbed_bone_surf_area; ...
@@ -757,7 +904,7 @@ for m = 1:length(files) % non-baseline scans
                     constant_bone_volume; formed_bone_volume; resorbed_bone_volume; constant_BVTV; formed_BVTV; resorbed_BVTV; ...
                     const_bone_surf_area; formed_bone_surf_area_ST; resorbed_bone_surf_area_ST; const_SATA; formed_SATA_ST; formed_SATA_CB; ...
                     resorbed_SATA_ST; resorbed_SATA_CB; MAR_3D; MRR_3D; BFR_3D; BRR_3D; mean_formed; std_formed; max_formed; mean_resorbed; ...
-                    std_resorbed; max_resorbed; formed_height; resorb_height; deltaVolume; deltaArea_SATA_ST; deltaArea_SATA_CB];
+                    std_resorbed; max_resorbed; formed_height; resorb_height; deltaVolume; deltaArea_SATA_ST; deltaArea_SATA_CB; size_cluster];
             case 'trab'
                 Parameters = {'Threshold 0'; 'Threshold X'; 'R_1'; 'R_2'; 'R_3'; 'R_4'; 'Voxelsize';...
                     'T.CV'; 'T.MV'; 'T.EV'; 'T.CV/BV'; 'T.MV/BV'; 'T.EV/BV'; 'T.CS'; 'T.MS'; 'T.ES'; 'T.CS/BS'; 'T.MS_ST/BS' ; 'T.MS_CB/BS'; 'T.ES_ST/BS'; ...
